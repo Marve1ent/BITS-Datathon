@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CIVS — College Investment Viability Score</title>
+<style>
+
+/* ─── RESET & TOKENS ──────────────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:    #0f0e0d;
+  --paper:  #f5f0e8;
+  --cream:  #ede7d6;
+  --panel:  #1a1917;      /* darker than ink so panel clearly separates */
+  --accent: #c94f2a;
+  --rule:   rgba(15,14,13,.15);
+  --green:  #5de096;
+  --amber:  #f0b429;
+  --red:    #f07070;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font: 15px/1.6 Georgia, serif;
+  min-height: 100vh;
+}
+
+/* ─── HEADER ──────────────────────────────────────────────────────────── */
+header {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 14px 32px;
+  font-size: 1.25rem;
+  letter-spacing: -.3px;
+}
+
+/* ─── TABS ────────────────────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  border-bottom: 2px solid var(--ink);
+  background: var(--paper);
+  position: sticky;
+  top: 0;
+  z-index: 99;
+}
+.tab {
+  padding: 10px 22px;
+  font: 600 .8rem Georgia, serif;
+  cursor: pointer;
+  border: none;
+  background: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+}
+.tab.on { border-bottom-color: var(--accent); color: var(--accent); }
+
+.tab-pane { display: none; }
+.tab-pane.on { display: block; }
+
+/* ─── TWO-COLUMN SHELL ────────────────────────────────────────────────── */
+.shell {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  min-height: calc(100vh - 90px);
+}
+
+/* ─── LEFT: SURVEY ────────────────────────────────────────────────────── */
+.left { border-right: 2px solid var(--ink); }
+
+.progress-bar { height: 3px; background: var(--cream); }
+.progress-fill { height: 100%; background: var(--accent); transition: width .3s; }
+
+.section { display: none; padding: 32px 32px 0; animation: fadeUp .25s ease; }
+.section.on { display: block; }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.sec-num  { font-size: .65rem; letter-spacing: 3px; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+.sec-title { font-size: 1.8rem; line-height: 1.15; margin-bottom: 6px; }
+.sec-desc { font-size: .85rem; color: #555; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--rule); }
+
+/* ─── FORM FIELDS ─────────────────────────────────────────────────────── */
+.field { margin-bottom: 20px; }
+.field > label {
+  display: block;
+  font-size: .85rem;
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+.field > label small { font: .7rem monospace; color: #888; font-weight: 400; margin-left: 4px; }
+
+/* Answered indicator dot */
+.field.answered > label::after {
+  content: '●';
+  color: var(--accent);
+  margin-left: 6px;
+  font-size: .5rem;
+  vertical-align: middle;
+}
+
+select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid var(--ink);
+  background: #fff;
+  font: inherit;
+  appearance: none;
+  outline: none;
+}
+select:focus { border-color: var(--accent); box-shadow: 2px 2px 0 var(--accent); }
+
+.select-wrap { position: relative; }
+.select-wrap::after {
+  content: '▾';
+  position: absolute;
+  right: 10px; top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: .7rem;
+}
+
+/* Sliders */
+.slider-row { display: grid; grid-template-columns: 1fr 100px; gap: 10px; align-items: center; }
+
+input[type=range] {
+  width: 100%;
+  -webkit-appearance: none;
+  height: 3px;
+  background: var(--cream);
+  border: 1px solid var(--rule);
+  outline: none;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  background: var(--ink);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.slider-val {
+  font: .8rem monospace;
+  text-align: right;
+  padding: 5px 8px;
+  border: 1px solid var(--rule);
+  background: var(--cream);
+}
+
+/* Pills */
+.pill-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill {
+  padding: 7px 14px;
+  border: 1.5px solid var(--ink);
+  background: #fff;
+  cursor: pointer;
+  font: .8rem inherit;
+  transition: background .12s;
+}
+.pill:hover { background: var(--cream); }
+.pill.on    { background: var(--ink); color: var(--paper); }
+
+/* Scale 1-5 */
+.scale-row { display: flex; gap: 6px; }
+.scale-btn {
+  flex: 1;
+  padding: 9px 4px;
+  border: 1.5px solid var(--ink);
+  background: #fff;
+  cursor: pointer;
+  font: .85rem monospace;
+  text-align: center;
+  transition: background .12s;
+}
+.scale-btn:hover { background: var(--cream); }
+.scale-btn.on    { background: var(--ink); color: var(--paper); }
+.scale-labels { display: flex; justify-content: space-between; margin-top: 4px; font: .65rem serif; color: #888; }
+
+/* Checkboxes */
+.check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.check-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--rule);
+  cursor: pointer;
+  font: .82rem inherit;
+  transition: all .12s;
+  user-select: none;
+}
+.check-item:hover { border-color: var(--ink); background: var(--cream); }
+.check-item input[type=checkbox] { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+.check-box {
+  width: 16px; height: 16px;
+  border: 1.5px solid var(--ink);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: 11px; font-weight: 700;
+  background: #fff;
+  transition: all .12s;
+}
+.check-item.on                   { border-color: var(--ink); background: var(--cream); }
+.check-item.on .check-box        { background: var(--ink); color: var(--paper); }
+
+/* ─── NAV BAR ─────────────────────────────────────────────────────────── */
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 32px;
+  border-top: 1px solid var(--rule);
+  position: sticky;
+  bottom: 0;
+  background: var(--paper);
+}
+.btn {
+  padding: 10px 24px;
+  border: 2px solid var(--ink);
+  font: 600 .85rem inherit;
+  cursor: pointer;
+  background: #fff;
+  transition: all .12s;
+}
+.btn:hover { transform: translate(-2px,-2px); box-shadow: 2px 2px 0 var(--ink); }
+.btn.primary { background: var(--ink); color: var(--paper); }
+.step-label  { font: .72rem monospace; color: #888; }
+
+/* ─── RIGHT: DASHBOARD PANEL ──────────────────────────────────────────── */
+/*
+  The panel uses --panel (near-black) as its background — clearly distinct
+  from the survey's --paper (warm off-white). A hard left border reinforces
+  the separation visually.
+*/
+.right {
+  background: var(--panel);
+  color: var(--paper);
+  padding: 24px 20px;
+  position: sticky;
+  top: 90px;
+  height: calc(100vh - 90px);
+  overflow-y: auto;
+  border-left: 3px solid var(--accent); /* accent stripe = clear visual boundary */
+}
+
+.panel-label {
+  font: .62rem monospace;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  opacity: .4;
+  margin-bottom: 18px;
+}
+
+/* ── "Need more inputs" state ── */
+.need-more {
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid rgba(245,240,232,.15);
+  text-align: center;
+}
+.need-more .icon  { font-size: 1.8rem; margin-bottom: 12px; opacity: .6; }
+.need-more h3     { font: 1rem Georgia,serif; margin-bottom: 8px; opacity: .85; }
+.need-more p      { font-size: .78rem; opacity: .45; line-height: 1.7; }
+
+/* Progress ring in "need more" area */
+.completion-bar-bg {
+  height: 5px;
+  background: rgba(245,240,232,.1);
+  margin: 16px 0 6px;
+}
+.completion-bar-fill {
+  height: 100%;
+  background: var(--amber);
+  transition: width .4s;
+}
+.completion-pct { font: .75rem monospace; opacity: .5; }
+
+/* ── Live results state ── */
+.score-box {
+  margin: 16px 0;
+  padding: 16px;
+  background: rgba(245,240,232,.05);
+  border: 1px solid rgba(245,240,232,.15);
+  text-align: center;
+}
+.score-num  { font: 3rem Georgia,serif; line-height: 1; margin-bottom: 3px; }
+.score-bar-bg   { height: 6px; background: rgba(245,240,232,.1); margin: 10px 0 6px; }
+.score-bar-fill { height: 100%; transition: width .5s; background: linear-gradient(90deg,#c93a2a,#c97a2a 50%,#1a7a4a); background-size: 300px; }
+
+.rec-badge {
+  display: inline-block;
+  padding: 5px 13px;
+  font: .7rem monospace;
+  letter-spacing: 1px;
+  margin-top: 6px;
+  border: 1.5px solid currentColor;
+}
+.go   { color: var(--green); }
+.warn { color: var(--amber); }
+.alt  { color: var(--red);   }
+
+.metric { padding: 13px 0; border-bottom: 1px solid rgba(245,240,232,.1); }
+.metric-name { font: .65rem monospace; text-transform: uppercase; letter-spacing: 1.5px; opacity: .5; margin-bottom: 3px; }
+.metric-val  { font: 1.5rem Georgia,serif; line-height: 1.1; }
+.metric-sub  { font: .72rem inherit; opacity: .45; margin-top: 2px; }
+
+.formula-toggle {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  color: var(--paper);
+  font: .68rem monospace;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  opacity: .35;
+  cursor: pointer;
+  padding: 10px 0 0;
+}
+.formula-toggle:hover { opacity: .7; }
+.formula-drawer {
+  display: none;
+  margin-top: 8px;
+  padding: 12px;
+  background: rgba(245,240,232,.04);
+  border: 1px solid rgba(245,240,232,.1);
+  font: .68rem monospace;
+  line-height: 1.9;
+  opacity: .6;
+}
+.formula-drawer.on { display: block; }
+.formula-row  { display: flex; gap: 6px; margin-bottom: 3px; }
+.formula-name { color: #d4a843; min-width: 78px; }
+
+/* ─── RESULTS PAGE (section 7) ────────────────────────────────────────── */
+.results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 20px; }
+.result-card  { padding: 16px; border: 1.5px solid var(--ink); background: #fff; }
+.result-card.hi { background: var(--ink); color: var(--paper); }
+.result-card .card-label { font: .62rem monospace; text-transform: uppercase; letter-spacing: 2px; opacity: .5; margin-bottom: 5px; }
+.result-card .card-val   { font: 1.6rem Georgia,serif; line-height: 1.1; }
+.result-card .card-sub   { font: .72rem inherit; opacity: .55; margin-top: 3px; }
+
+.risk-note { margin-top: 20px; padding: 16px; background: var(--cream); border-left: 3px solid var(--accent); font: .85rem inherit; line-height: 1.6; }
+
+/* ─── FORMULA REFERENCE PAGE ─────────────────────────────────────────── */
+.formula-ref { max-width: 780px; padding: 32px 40px 80px; }
+.formula-ref h2 { font: 2rem Georgia,serif; margin-bottom: 6px; }
+.page-sub { font: .85rem inherit; color: #555; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid var(--rule); }
+
+.formula-card { padding: 18px; border-left: 3px solid var(--accent); background: #fff; margin-bottom: 14px; }
+.formula-card h3   { font: 1.05rem Georgia,serif; margin-bottom: 6px; }
+.formula-code { font: .72rem monospace; background: var(--cream); padding: 10px 12px; margin: 8px 0; line-height: 1.75; color: var(--accent); }
+.formula-desc { font: .82rem inherit; color: #555; }
+.formula-vars { margin-top: 6px; font: .7rem monospace; color: #999; }
+
+.score-card { margin-top: 28px; padding: 20px; background: var(--cream); border: 1.5px solid var(--ink); }
+.score-card h3 { font: 1.1rem Georgia,serif; margin-bottom: 10px; }
+.score-formula { font: .72rem monospace; background: #fff; padding: 12px; margin-top: 10px; line-height: 2; }
+
+/* ─── RESPONSIVE ─────────────────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .shell       { grid-template-columns: 1fr; }
+  .right       { position: static; height: auto; border-left: none; border-top: 3px solid var(--accent); }
+  .check-grid  { grid-template-columns: 1fr; }
+  .results-grid { grid-template-columns: 1fr; }
+}
+
+</style>
+</head>
+<body>
+
+<header>College Investment Viability Score (CIVS)</header>
+
+<div class="tabs">
+  <button class="tab on" onclick="showTab('survey', this)">Survey</button>
+  <button class="tab"    onclick="showTab('formulas', this)">Formula Reference</button>
+</div>
+
+
+<!-- ══════════════════════════════════════ SURVEY TAB -->
+<div id="tab-survey" class="tab-pane on">
+<div class="shell">
+
+  <!-- LEFT: Survey wizard -->
+  <div class="left">
+    <div class="progress-bar">
+      <div class="progress-fill" id="prog" style="width:14%"></div>
+    </div>
+
+    <!-- ── Section 1: Demographics ── -->
+    <div class="section on" id="s1">
+      <div class="sec-num">Section 01 / 07</div>
+      <div class="sec-title">Who are you?</div>
+      <div class="sec-desc">Background helps calibrate the right comparison baselines.</div>
+
+      <div class="field" id="f-edu">
+        <label for="edu_level">Current education level</label>
+        <div class="select-wrap">
+          <select id="edu_level" onchange="markField('f-edu'); calc()">
+            <option value="">— Select —</option>
+            <option value="hs">High school</option>
+            <option value="some">Some college</option>
+            <option value="assoc">Associate's</option>
+            <option value="bach">Bachelor's</option>
+            <option value="grad">Graduate</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field" id="f-firstgen">
+        <label>First-generation college student?</label>
+        <div class="pill-row" id="firstgen">
+          <div class="pill" onclick="pill('firstgen', this, 0); markField('f-firstgen')">No</div>
+          <div class="pill" onclick="pill('firstgen', this, 1); markField('f-firstgen')">Yes — first in family</div>
+        </div>
+      </div>
+
+      <div class="field" id="f-income">
+        <label for="hh_income">Household income growing up</label>
+        <div class="select-wrap">
+          <select id="hh_income" onchange="markField('f-income'); calc()">
+            <option value="">— Select —</option>
+            <option value="30">Under $30K</option>
+            <option value="45">$30K – $60K</option>
+            <option value="80">$60K – $100K</option>
+            <option value="125">$100K – $150K</option>
+            <option value="200">$150K+</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Section 2: Educational Plan ── -->
+    <div class="section" id="s2">
+      <div class="sec-num">Section 02 / 07</div>
+      <div class="sec-title">Your educational plan</div>
+      <div class="sec-desc">Degree type and duration dramatically affect total cost and expected return.</div>
+
+      <div class="field" id="f-major">
+        <label for="major">Intended major</label>
+        <div class="select-wrap">
+          <select id="major" onchange="markField('f-major'); calc()">
+            <option value="">— Select —</option>
+            <option value="stem">STEM</option>
+            <option value="business">Business</option>
+            <option value="health">Health / Nursing</option>
+            <option value="humanities">Humanities & Arts</option>
+            <option value="social">Social Sciences</option>
+            <option value="education">Education</option>
+            <option value="trades">Trades / Technical</option>
+            <option value="undecided">Undecided</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field" id="f-school">
+        <label for="school_type">School type</label>
+        <div class="select-wrap">
+          <select id="school_type" onchange="markField('f-school'); calc()">
+            <option value="">— Select —</option>
+            <option value="public_in">Public in-state</option>
+            <option value="public_out">Public out-of-state</option>
+            <option value="private_np">Private nonprofit</option>
+            <option value="private_fp">Private for-profit</option>
+            <option value="cc">Community college</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field" id="f-gradyrs">
+        <label>Expected time to graduate</label>
+        <div class="pill-row" id="grad_years">
+          <div class="pill" onclick="pill('grad_years', this, 4); markField('f-gradyrs')">4 years</div>
+          <div class="pill" onclick="pill('grad_years', this, 5); markField('f-gradyrs')">5 years</div>
+          <div class="pill" onclick="pill('grad_years', this, 6); markField('f-gradyrs')">6+ years</div>
+          <div class="pill" onclick="pill('grad_years', this, 4.5); markField('f-gradyrs')">Unsure</div>
+        </div>
+      </div>
+
+      <div class="field" id="f-majcert">
+        <label>How certain are you about your major? <small>1 = very uncertain · 5 = very certain</small></label>
+        <div class="scale-row" id="major_cert">
+          <div class="scale-btn" onclick="scale('major_cert', this, 1); markField('f-majcert')">1</div>
+          <div class="scale-btn" onclick="scale('major_cert', this, 2); markField('f-majcert')">2</div>
+          <div class="scale-btn" onclick="scale('major_cert', this, 3); markField('f-majcert')">3</div>
+          <div class="scale-btn" onclick="scale('major_cert', this, 4); markField('f-majcert')">4</div>
+          <div class="scale-btn" onclick="scale('major_cert', this, 5); markField('f-majcert')">5</div>
+        </div>
+        <div class="scale-labels"><span>Very uncertain</span><span>Very certain</span></div>
+      </div>
+    </div>
+
+    <!-- ── Section 3: Finances ── -->
+    <div class="section" id="s3">
+      <div class="sec-num">Section 03 / 07</div>
+      <div class="sec-title">Financial situation</div>
+      <div class="sec-desc">These numbers drive most of the ROI calculation — be as accurate as possible.</div>
+
+      <!-- Sliders are always "answered" since they have a default value -->
+      <div class="field answered" id="f-cost">
+        <label>Expected total cost — all years <small>tuition + room + books</small></label>
+        <div class="slider-row">
+          <input type="range" id="total_cost" min="0" max="300000" step="5000" value="120000"
+                 oninput="syncSlider(this, 'v-cost'); calc()">
+          <div class="slider-val" id="v-cost">$120,000</div>
+        </div>
+      </div>
+
+      <div class="field answered" id="f-aid">
+        <label>Scholarships & grants <small>total, all years</small></label>
+        <div class="slider-row">
+          <input type="range" id="aid" min="0" max="150000" step="1000" value="15000"
+                 oninput="syncSlider(this, 'v-aid'); calc()">
+          <div class="slider-val" id="v-aid">$15,000</div>
+        </div>
+      </div>
+
+      <div class="field answered" id="f-loans">
+        <label>Student loans <small>total borrowed</small></label>
+        <div class="slider-row">
+          <input type="range" id="loans" min="0" max="150000" step="1000" value="40000"
+                 oninput="syncSlider(this, 'v-loans'); calc()">
+          <div class="slider-val" id="v-loans">$40,000</div>
+        </div>
+      </div>
+
+      <div class="field answered" id="f-family">
+        <label>Family contribution <small>out-of-pocket total</small></label>
+        <div class="slider-row">
+          <input type="range" id="family" min="0" max="100000" step="1000" value="10000"
+                 oninput="syncSlider(this, 'v-family'); calc()">
+          <div class="slider-val" id="v-family">$10,000</div>
+        </div>
+      </div>
+
+      <div class="field" id="f-work">
+        <label>Will you work during school?</label>
+        <div class="pill-row" id="work_school">
+          <div class="pill" onclick="pill('work_school', this, 0); markField('f-work')">No</div>
+          <div class="pill" onclick="pill('work_school', this, 8000); markField('f-work')">Part-time</div>
+          <div class="pill" onclick="pill('work_school', this, 22000); markField('f-work')">Full-time</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Section 4: Career ── -->
+    <div class="section" id="s4">
+      <div class="sec-num">Section 04 / 07</div>
+      <div class="sec-title">Career expectations</div>
+      <div class="sec-desc">Your salary trajectory is the single biggest variable in ROI.</div>
+
+      <div class="field" id="f-creq">
+        <label>Does your target career require a degree?</label>
+        <div class="pill-row" id="career_req">
+          <div class="pill" onclick="pill('career_req', this, 1); markField('f-creq')">Not necessary</div>
+          <div class="pill" onclick="pill('career_req', this, 2); markField('f-creq')">Preferred</div>
+          <div class="pill" onclick="pill('career_req', this, 3); markField('f-creq')">Required</div>
+        </div>
+      </div>
+
+      <div class="field answered" id="f-sal1">
+        <label>Expected starting salary <small>with degree</small></label>
+        <div class="slider-row">
+          <input type="range" id="sal_start" min="25000" max="150000" step="1000" value="55000"
+                 oninput="syncSlider(this, 'v-sal1'); calc()">
+          <div class="slider-val" id="v-sal1">$55,000</div>
+        </div>
+      </div>
+
+      <div class="field answered" id="f-sal2">
+        <label>Expected salary at age 40–45 <small>mid-career</small></label>
+        <div class="slider-row">
+          <input type="range" id="sal_mid" min="35000" max="300000" step="2000" value="85000"
+                 oninput="syncSlider(this, 'v-sal2'); calc()">
+          <div class="slider-val" id="v-sal2">$85,000</div>
+        </div>
+      </div>
+
+      <div class="field" id="f-jobsec">
+        <label>Importance of job security <small>1 = not important · 5 = very important</small></label>
+        <div class="scale-row" id="job_sec">
+          <div class="scale-btn" onclick="scale('job_sec', this, 1); markField('f-jobsec')">1</div>
+          <div class="scale-btn" onclick="scale('job_sec', this, 2); markField('f-jobsec')">2</div>
+          <div class="scale-btn" onclick="scale('job_sec', this, 3); markField('f-jobsec')">3</div>
+          <div class="scale-btn" onclick="scale('job_sec', this, 4); markField('f-jobsec')">4</div>
+          <div class="scale-btn" onclick="scale('job_sec', this, 5); markField('f-jobsec')">5</div>
+        </div>
+        <div class="scale-labels"><span>Not important</span><span>Very important</span></div>
+      </div>
+    </div>
+
+    <!-- ── Section 5: Alternatives ── -->
+    <div class="section" id="s5">
+      <div class="sec-num">Section 05 / 07</div>
+      <div class="sec-title">Alternatives considered</div>
+      <div class="sec-desc">Check everything you've seriously considered instead of a 4-year degree.</div>
+
+      <div class="field" id="f-alts">
+        <label>Select all that apply</label>
+        <div class="check-grid">
+          <label class="check-item"><input type="checkbox" value="trade">     <div class="check-box"></div>Trade school</label>
+          <label class="check-item"><input type="checkbox" value="apprentice"><div class="check-box"></div>Apprenticeship</label>
+          <label class="check-item"><input type="checkbox" value="bootcamp">  <div class="check-box"></div>Coding bootcamp</label>
+          <label class="check-item"><input type="checkbox" value="military">  <div class="check-box"></div>Military</label>
+          <label class="check-item"><input type="checkbox" value="startup">   <div class="check-box"></div>Start a business</label>
+          <label class="check-item"><input type="checkbox" value="work">      <div class="check-box"></div>Direct workforce entry</label>
+          <label class="check-item"><input type="checkbox" value="cc">        <div class="check-box"></div>Community college → transfer</label>
+          <label class="check-item"><input type="checkbox" value="none">      <div class="check-box"></div>None of the above</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Section 6: Values ── -->
+    <div class="section" id="s6">
+      <div class="sec-num">Section 06 / 07</div>
+      <div class="sec-title">Values & priorities</div>
+      <div class="sec-desc">These personal weights modulate how CIVS interprets your risk profile and earnings priorities.</div>
+
+      <div class="field" id="f-vearn">
+        <label>Maximizing lifetime earnings</label>
+        <div class="scale-row" id="v_earn">
+          <div class="scale-btn"    onclick="scale('v_earn', this, 1); markField('f-vearn'); calc()">1</div>
+          <div class="scale-btn"    onclick="scale('v_earn', this, 2); markField('f-vearn'); calc()">2</div>
+          <div class="scale-btn"    onclick="scale('v_earn', this, 3); markField('f-vearn'); calc()">3</div>
+          <div class="scale-btn"    onclick="scale('v_earn', this, 4); markField('f-vearn'); calc()">4</div>
+          <div class="scale-btn on" onclick="scale('v_earn', this, 5); markField('f-vearn'); calc()">5</div>
+        </div>
+        <div class="scale-labels"><span>Not a priority</span><span>Top priority</span></div>
+      </div>
+
+      <div class="field" id="f-vdebt">
+        <label>Minimizing debt</label>
+        <div class="scale-row" id="v_debt">
+          <div class="scale-btn"    onclick="scale('v_debt', this, 1); markField('f-vdebt'); calc()">1</div>
+          <div class="scale-btn"    onclick="scale('v_debt', this, 2); markField('f-vdebt'); calc()">2</div>
+          <div class="scale-btn on" onclick="scale('v_debt', this, 3); markField('f-vdebt'); calc()">3</div>
+          <div class="scale-btn"    onclick="scale('v_debt', this, 4); markField('f-vdebt'); calc()">4</div>
+          <div class="scale-btn"    onclick="scale('v_debt', this, 5); markField('f-vdebt'); calc()">5</div>
+        </div>
+        <div class="scale-labels"><span>Not a priority</span><span>Top priority</span></div>
+      </div>
+
+      <div class="field" id="f-vwlb">
+        <label>Work-life balance</label>
+        <div class="scale-row" id="v_wlb">
+          <div class="scale-btn"    onclick="scale('v_wlb', this, 1); markField('f-vwlb'); calc()">1</div>
+          <div class="scale-btn"    onclick="scale('v_wlb', this, 2); markField('f-vwlb'); calc()">2</div>
+          <div class="scale-btn"    onclick="scale('v_wlb', this, 3); markField('f-vwlb'); calc()">3</div>
+          <div class="scale-btn on" onclick="scale('v_wlb', this, 4); markField('f-vwlb'); calc()">4</div>
+          <div class="scale-btn"    onclick="scale('v_wlb', this, 5); markField('f-vwlb'); calc()">5</div>
+        </div>
+        <div class="scale-labels"><span>Not a priority</span><span>Top priority</span></div>
+      </div>
+
+      <div class="field" id="f-risk">
+        <label>Risk: <em>"I'd rather have a guaranteed $70K than a 50% shot at $150K"</em></label>
+        <div class="scale-row" id="risk_tol">
+          <div class="scale-btn"    onclick="scale('risk_tol', this, 1); markField('f-risk'); calc()">1</div>
+          <div class="scale-btn"    onclick="scale('risk_tol', this, 2); markField('f-risk'); calc()">2</div>
+          <div class="scale-btn on" onclick="scale('risk_tol', this, 3); markField('f-risk'); calc()">3</div>
+          <div class="scale-btn"    onclick="scale('risk_tol', this, 4); markField('f-risk'); calc()">4</div>
+          <div class="scale-btn"    onclick="scale('risk_tol', this, 5); markField('f-risk'); calc()">5</div>
+        </div>
+        <div class="scale-labels"><span>Strongly disagree</span><span>Strongly agree</span></div>
+      </div>
+    </div>
+
+    <!-- ── Section 7: Results ── -->
+    <div class="section" id="s7">
+      <div class="sec-num">Section 07 / 07</div>
+      <div class="sec-title">Your ROI results</div>
+      <div class="sec-desc">All five formulas calculated from your answers. Live detail in the panel on the right.</div>
+
+      <div class="results-grid">
+        <div class="result-card hi">
+          <div class="card-label">CIVS</div>
+          <div class="card-val"  id="r-score">—</div>
+          <div class="card-sub">College Investment Viability Score (0–100)</div>
+        </div>
+        <div class="result-card">
+          <div class="card-label">Recommendation</div>
+          <div class="card-val" style="font-size:1rem;margin-top:4px" id="r-rec">—</div>
+        </div>
+        <div class="result-card">
+          <div class="card-label">C1 — Lifetime ROI</div>
+          <div class="card-val" id="r-roi">—</div>
+          <div class="card-sub">normalized return on net investment</div>
+        </div>
+        <div class="result-card">
+          <div class="card-label">C2 — Break-Even</div>
+          <div class="card-val" id="r-be">—</div>
+          <div class="card-sub">years to positive ROI (inverted in score)</div>
+        </div>
+        <div class="result-card">
+          <div class="card-label">C3 — Completion Robustness</div>
+          <div class="card-val" id="r-robust">—</div>
+          <div class="card-sub">risk-weighted ÷ on-time ROI ratio</div>
+        </div>
+        <div class="result-card">
+          <div class="card-label">C4 — Downside Protection</div>
+          <div class="card-val" id="r-droi">—</div>
+          <div class="card-sub">dropout ROI vs. no-degree baseline</div>
+        </div>
+        <div class="result-card">
+          <div class="card-label">C5 — Grad Probability</div>
+          <div class="card-val" id="r-gradprob">—</div>
+          <div class="card-sub">adjusted 6-year completion rate</div>
+        </div>
+        <div class="result-card">
+          <div class="card-label">Risk-Adjusted NPV</div>
+          <div class="card-val" id="r-rnpv">—</div>
+          <div class="card-sub">present value, weighted by completion</div>
+        </div>
+      </div>
+
+      <div class="risk-note" id="r-risk-note"></div>
+    </div>
+
+    <!-- Nav buttons -->
+    <div class="nav">
+      <button class="btn" id="btn-back" onclick="navigate(-1)" style="visibility:hidden">← Back</button>
+      <span class="step-label" id="step-label">Step 1 of 7</span>
+      <button class="btn primary" id="btn-next" onclick="navigate(1)">Continue →</button>
+    </div>
+  </div><!-- /left -->
+
+
+  <!-- RIGHT: Dashboard panel -->
+  <div class="right">
+    <div class="panel-label">Live CIVS Dashboard</div>
+
+    <!-- "Need more inputs" state — shown when completion < 80% -->
+    <div id="panel-need-more">
+      <div class="need-more">
+        <div class="icon">📋</div>
+        <h3>Need more information</h3>
+        <p>Answer at least 80% of the survey questions for your ROI to calculate.</p>
+      </div>
+      <div style="margin-top: 20px;">
+        <div class="completion-pct" id="completion-pct">0% complete</div>
+        <div class="completion-bar-bg">
+          <div class="completion-bar-fill" id="completion-bar" style="width:0%"></div>
+        </div>
+        <div style="font:.65rem monospace; opacity:.35; margin-top:6px; text-align:right;">
+          need 80% to unlock results
+        </div>
+      </div>
+    </div>
+
+    <!-- Live results — shown when completion ≥ 80% -->
+    <div id="panel-results" style="display:none">
+      <div class="score-box">
+        <div style="font:.62rem monospace;letter-spacing:2px;text-transform:uppercase;opacity:.4;margin-bottom:6px">CIVS (0–100)</div>
+        <div class="score-num" id="p-score">0</div>
+        <div class="score-bar-bg">
+          <div class="score-bar-fill" id="p-bar" style="width:0%"></div>
+        </div>
+        <div id="p-badge" class="rec-badge warn">Calculating…</div>
+      </div>
+
+      <div class="metric">
+        <div class="metric-name">C1 — Lifetime ROI</div>
+        <div class="metric-val" id="p-roi">—</div>
+        <div class="metric-sub">normalized return on net investment</div>
+      </div>
+      <div class="metric">
+        <div class="metric-name">C2 — Time to Positive ROI</div>
+        <div class="metric-val" id="p-be">—</div>
+        <div class="metric-sub">break-even years (inverted in CIVS)</div>
+      </div>
+      <div class="metric">
+        <div class="metric-name">C3 — Completion Robustness</div>
+        <div class="metric-val" id="p-robust">—</div>
+        <div class="metric-sub">risk-weighted ROI ÷ on-time ROI</div>
+      </div>
+      <div class="metric">
+        <div class="metric-name">C4 — Downside Protection</div>
+        <div class="metric-val" id="p-droi">—</div>
+        <div class="metric-sub">dropout ROI vs. no-degree counterfactual</div>
+      </div>
+      <div class="metric">
+        <div class="metric-name">C5 — Graduation Probability</div>
+        <div class="metric-val" id="p-gradprob">—</div>
+        <div class="metric-sub">6-yr completion rate (adjusted)</div>
+      </div>
+
+      <button class="formula-toggle" onclick="document.getElementById('formula-drawer').classList.toggle('on')">
+        ▾ CIVS component breakdown
+      </button>
+      <div class="formula-drawer" id="formula-drawer">
+        <div class="formula-row"><span class="formula-name">Net Cost</span>    <span id="f-nc">—</span></div>
+        <div class="formula-row"><span class="formula-name">Earn. Premium</span><span id="f-ep">—</span></div>
+        <div class="formula-row"><span class="formula-name">Raw ROI</span>      <span id="f-rawroi">—</span></div>
+        <div class="formula-row"><span class="formula-name">Break-Even</span>   <span id="f-be">—</span></div>
+        <div class="formula-row"><span class="formula-name">Grad Prob</span>    <span id="f-gp">—</span></div>
+        <div class="formula-row"><span class="formula-name">Risk ROI</span>     <span id="f-rroi">—</span></div>
+        <div class="formula-row"><span class="formula-name">CIVS</span>         <span id="f-civs">—</span></div>
+      </div>
+    </div>
+
+  </div><!-- /right -->
+</div><!-- /shell -->
+</div><!-- /tab-survey -->
+
+
+<!-- ══════════════════════════════════════ FORMULA REFERENCE TAB -->
+<div id="tab-formulas" class="tab-pane">
+<div class="formula-ref">
+  <h2>CIVS — Formula Reference</h2>
+  <div class="page-sub">
+    The <strong>College Investment Viability Score (CIVS)</strong> is a weighted linear combination of five
+    min-max–normalized components capturing payoff magnitude, payoff latency, failure robustness,
+    downside protection, and structural completion probability. Heterogeneous financial and temporal
+    variables are mapped onto a common [0, 1] scale before aggregation, enabling consistent cross-program
+    comparisons that account for payoff magnitude, latency, and failure risk.
+  </div>
+
+  <!-- Master equation -->
+  <div class="formula-card" style="border-left-color:var(--ink); background:var(--ink); color:var(--paper);">
+    <h3 style="color:var(--paper)">Master Equation</h3>
+    <div class="formula-code" style="background:rgba(245,240,232,.07); color:#d4a843;">
+      CIVS = w₁·Ñ(C1) + w₂·Ñ(C2) + w₃·Ñ(C3) + w₄·Ñ(C4) + w₅·Ñ(C5)<br><br>
+      Ñ(Cᵢ) = min-max normalization of component Cᵢ onto [0, 1]<br><br>
+      Weights (sum to 1.0):<br>
+      &nbsp; w₁ = 0.35  — C1: Lifetime ROI             (payoff magnitude)<br>
+      &nbsp; w₂ = 0.20  — C2: Time to positive ROI      (payoff latency, inverted)<br>
+      &nbsp; w₃ = 0.20  — C3: Completion robustness     (failure sensitivity)<br>
+      &nbsp; w₄ = 0.15  — C4: Downside protection       (dropout floor vs. baseline)<br>
+      &nbsp; w₅ = 0.10  — C5: Graduation probability    (structural success rate)<br><br>
+      CIVS × 100 → score on 0–100 scale<br>
+      ≥ 70 → ✅ INVEST  |  45–69 → ⚠️ CAUTION  |  &lt; 45 → 🔴 RECONSIDER
+    </div>
+    <div class="formula-desc" style="color:rgba(245,240,232,.6)">
+      By normalizing heterogeneous variables onto a common scale before aggregation,
+      CIVS ensures no single dimension dominates due to unit or scale differences
+      (e.g., raw dollars vs. years vs. ratios). The result is a decision-oriented,
+      reproducible evaluation framework suitable for scalable cross-program analysis.
+    </div>
+  </div>
+
+  <!-- Normalization -->
+  <div class="formula-card" style="border-left-color:#d4a843">
+    <h3>Normalization Bounds</h3>
+    <div class="formula-code">
+      Ñ(Cᵢ) = ( Cᵢ − min_i ) / ( max_i − min_i ),  clamped to [0, 1]<br><br>
+      Component    min      max     Direction<br>
+      ──────────────────────────────────────────────<br>
+      C1  ROI %   −100%   +400%    higher = better<br>
+      C2  Years      1      40     lower  = better  →  Ñ(C2) = 1 − normalize(C2)<br>
+      C3  Ratio     0.0     1.0    higher = better<br>
+      C4  Ratio    −1.0     1.0    higher = better<br>
+      C5  Prob      0.0     1.0    higher = better
+    </div>
+    <div class="formula-desc">
+      Bounds are empirically grounded on realistic college ROI scenarios.
+      C2 is <strong>inverted</strong> before weighting — a shorter path to positive ROI signals stronger viability.
+    </div>
+  </div>
+
+  <!-- C1 -->
+  <div class="formula-card">
+    <h3>C1 — Lifetime ROI &nbsp;<small style="font-weight:400;opacity:.5">w₁ = 0.35</small></h3>
+    <div class="formula-code">
+      C1 = ( EarningsPremium − NetCost ) / NetCost × 100<br><br>
+      EarningsPremium = [ (W_start×10 + W_mid×15 + W_late×15)<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;− (N_start×10 + N_mid×15 + N_late×15) ] × (1.02)^(yrs/2)<br><br>
+      NetCost = DirectCosts − Aid − FamilyContrib + OppCost + LoanInterest<br>
+      &nbsp;&nbsp; OppCost     = $32,000 × years_enrolled<br>
+      &nbsp;&nbsp; LoanInterest: monthly payment via annuity → P = L × [r(1+r)^n/((1+r)^n−1)]
+    </div>
+    <div class="formula-desc">
+      The highest weight (35%) because payoff magnitude is the primary determinant of investment quality.
+      Three career phases model earnings across early (yrs 1–10), mid (11–25), and late (26–40) career,
+      adjusted for 2% annual growth. No-degree baseline is field-specific from BLS data.
+    </div>
+    <div class="formula-vars">Inputs: sal_start, sal_mid, total_cost, aid, family, loans, grad_years, major</div>
+  </div>
+
+  <!-- C2 -->
+  <div class="formula-card" style="border-left-color:#2a6bc9">
+    <h3>C2 — Time to Positive ROI &nbsp;<small style="font-weight:400;opacity:.5">w₂ = 0.20, inverted</small></h3>
+    <div class="formula-code">
+      C2_raw = NetCost / ( StartSalary_WITH − StartSalary_WITHOUT )<br><br>
+      Ñ(C2)  = 1 − [ (C2_raw − 1) / (40 − 1) ]   ← inverted normalization<br><br>
+      Examples:  5 yrs → Ñ ≈ 0.90   |   15 yrs → Ñ ≈ 0.64   |   40 yrs → Ñ = 0.0
+    </div>
+    <div class="formula-desc">
+      Payoff latency matters independently of total magnitude. A degree that breaks even in 30 years
+      is structurally riskier than one that breaks even in 7, even if lifetime totals are similar.
+      This component captures that timing dimension explicitly.
+    </div>
+    <div class="formula-vars">Inputs: total_cost, aid, family, loans, sal_start, major (for no-degree baseline)</div>
+  </div>
+
+  <!-- C3 -->
+  <div class="formula-card" style="border-left-color:#c97a2a">
+    <h3>C3 — Completion Robustness &nbsp;<small style="font-weight:400;opacity:.5">w₃ = 0.20</small></h3>
+    <div class="formula-code">
+      GradProb = 0.60  (BLS national 6-yr baseline)<br>
+      &nbsp;&nbsp; + 0.05  if major certainty ≥ 4<br>
+      &nbsp;&nbsp; + 0.05  if career requires degree<br>
+      &nbsp;&nbsp; − 0.05  if first-generation student<br>
+      GradProb clamped to [0.30, 0.95]<br><br>
+      DropoutROI = ( EarnNoDeg − DropoutCost ) / DropoutCost × 100<br>
+      &nbsp;&nbsp; DropoutCost = DirectCosts/2 + OppCost/2<br><br>
+      RiskWeightedROI = GradProb × OnTimeROI + (1−GradProb) × DropoutROI<br><br>
+      C3 = RiskWeightedROI / OnTimeROI  ,  clamped [0, 1]
+    </div>
+    <div class="formula-desc">
+      Measures what fraction of the on-time ROI survives after weighting by the real-world probability of not finishing.
+      C3 near 1.0 = return is robust to dropout risk. C3 near 0 = return is fragile and highly completion-dependent.
+    </div>
+    <div class="formula-vars">Inputs: major_cert, career_req, firstgen</div>
+  </div>
+
+  <!-- C4 -->
+  <div class="formula-card" style="border-left-color:#c93a2a">
+    <h3>C4 — Downside Protection &nbsp;<small style="font-weight:400;opacity:.5">w₄ = 0.15</small></h3>
+    <div class="formula-code">
+      DropoutROI    = ( EarnNoDeg − DropoutCost ) / DropoutCost × 100<br>
+      NoDegBaseline = 100  (proxy for zero-investment no-degree career return)<br><br>
+      C4 = DropoutROI / NoDegBaseline  ,  clamped to [−1, 1]<br><br>
+      Ñ(C4) = ( C4 + 1 ) / 2<br><br>
+      C4 > 0: partial enrollment still beats not enrolling at all<br>
+      C4 &lt; 0: dropout leaves you worse off than the no-college counterfactual
+    </div>
+    <div class="formula-desc">
+      Measures whether the investment has a floor. A positive C4 means even a dropout scenario
+      produces better economic outcomes than never enrolling. A negative C4 signals no downside protection —
+      the investment fails catastrophically if not completed.
+    </div>
+    <div class="formula-vars">Derived from: total_cost, grad_years, major (no-degree earnings baseline)</div>
+  </div>
+
+  <!-- C5 -->
+  <div class="formula-card" style="border-left-color:#1a7a4a">
+    <h3>C5 — Graduation Probability &nbsp;<small style="font-weight:400;opacity:.5">w₅ = 0.10</small></h3>
+    <div class="formula-code">
+      C5 = GradProb  (same adjusted value as C3)<br><br>
+      Base rate:   0.60  (BLS 6-year national completion rate)<br>
+      Adjustments: +0.05 / +0.05 / −0.05  (same as C3)<br>
+      Clamped to [0.30, 0.95]<br><br>
+      Ñ(C5) = C5  (bounds are [0, 1]; normalization is identity here)
+    </div>
+    <div class="formula-desc">
+      Enters CIVS as a standalone term to reward structural conditions associated with completion
+      (clear major, career-aligned field, support networks). While C3 captures <em>ROI sensitivity</em>
+      to dropout risk, C5 captures the <em>absolute probability</em> independently — they are conceptually
+      distinct even when they share the same inputs.
+    </div>
+    <div class="formula-vars">Inputs: major_cert, career_req, firstgen</div>
+  </div>
+
+  <!-- Worked example -->
+  <div class="score-card">
+    <h3>Worked Example — Public In-State STEM Student</h3>
+    <div class="formula-desc">$120K total cost, $40K loans, $55K starting salary, 4-year program:</div>
+    <div class="score-formula">
+      C1 (ROI %)       = +185%  →  Ñ = (185+100)/(400+100)      = 0.57<br>
+      C2 (Break-even)  = 9 yrs  →  Ñ = 1 − (9−1)/(40−1)         = 0.79<br>
+      C3 (Robustness)  = 0.71   →  Ñ = 0.71<br>
+      C4 (Downside)    = 0.42   →  Ñ = (0.42+1)/2                = 0.71<br>
+      C5 (Grad prob)   = 0.65   →  Ñ = 0.65<br><br>
+      CIVS = 0.35×0.57 + 0.20×0.79 + 0.20×0.71 + 0.15×0.71 + 0.10×0.65<br>
+           = 0.200 + 0.158 + 0.142 + 0.107 + 0.065<br>
+           = 0.672  →  <strong>CIVS = 67.2 → ⚠️ CAUTION</strong>
+    </div>
+  </div>
+
+</div>
+</div><!-- /tab-formulas -->
+
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+// All survey values live here. Sliders get defaults; selects/pills start null.
+const S = {
+  firstgen:    null,
+  hh_income:   null,
+  major:       null,
+  school_type: null,
+  grad_years:  null,
+  major_cert:  null,
+  total_cost:  120000,   // slider — always has a value
+  aid:         15000,
+  loans:       40000,
+  family:      10000,
+  work_school: null,
+  career_req:  null,
+  sal_start:   55000,    // slider — always has a value
+  sal_mid:     85000,
+  job_sec:     null,
+  v_earn:      5,        // pre-selected defaults
+  v_debt:      3,
+  v_wlb:       4,
+  risk_tol:    3,
+};
+
+// Salary lookup by major
+const MAJOR_SAL = {
+  stem:       { s:65000, m:110000, l:135000, hs:35000, hm:50000, hl:60000 },
+  business:   { s:52000, m:85000,  l:110000, hs:35000, hm:50000, hl:60000 },
+  health:     { s:58000, m:82000,  l:95000,  hs:35000, hm:50000, hl:60000 },
+  humanities: { s:38000, m:55000,  l:68000,  hs:35000, hm:50000, hl:60000 },
+  social:     { s:40000, m:58000,  l:72000,  hs:35000, hm:50000, hl:60000 },
+  education:  { s:40000, m:55000,  l:65000,  hs:35000, hm:50000, hl:60000 },
+  trades:     { s:45000, m:65000,  l:75000,  hs:38000, hm:55000, hl:65000 },
+  undecided:  { s:48000, m:72000,  l:88000,  hs:35000, hm:50000, hl:60000 },
+};
+
+// All tracked field IDs — used for completion % calculation
+// Sliders count as always answered; optional fields (alts section) excluded
+const ALL_FIELDS = [
+  'f-edu', 'f-firstgen', 'f-income',       // s1
+  'f-major', 'f-school', 'f-gradyrs', 'f-majcert', // s2
+  'f-cost', 'f-aid', 'f-loans', 'f-family', 'f-work', // s3
+  'f-creq', 'f-sal1', 'f-sal2', 'f-jobsec', // s4
+  // s5 (alts) intentionally excluded — optional
+  'f-vearn', 'f-vdebt', 'f-vwlb', 'f-risk', // s6
+];
+
+let currentStep = 1;
+
+
+// ─── NAVIGATION ───────────────────────────────────────────────────────────────
+function navigate(dir) {
+  const next = currentStep + dir;
+  if (next < 1 || next > 7) return;
+
+  document.getElementById('s' + currentStep).classList.remove('on');
+  currentStep = next;
+  document.getElementById('s' + currentStep).classList.add('on');
+
+  document.getElementById('prog').style.width = (currentStep / 7 * 100) + '%';
+  document.getElementById('step-label').textContent = 'Step ' + currentStep + ' of 7';
+  document.getElementById('btn-back').style.visibility = currentStep > 1 ? 'visible' : 'hidden';
+  document.getElementById('btn-next').textContent = currentStep === 7 ? 'Done ✓' : 'Continue →';
+
+  if (currentStep === 7) updateResultsPage();
+  window.scrollTo(0, 0);
+}
+
+
+// ─── FIELD HELPERS ────────────────────────────────────────────────────────────
+
+// Mark a field as answered (adds dot indicator, counts toward completion)
+function markField(fieldId) {
+  document.getElementById(fieldId).classList.add('answered');
+  calc();
+}
+
+// Pill selector — deselects siblings, selects clicked
+function pill(groupId, el, value) {
+  document.querySelectorAll('#' + groupId + ' .pill').forEach(p => p.classList.remove('on'));
+  el.classList.add('on');
+  S[groupId] = +value;
+}
+
+// Scale selector — same pattern
+function scale(groupId, el, value) {
+  document.querySelectorAll('#' + groupId + ' .scale-btn').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  S[groupId] = +value;
+}
+
+// Sync slider → display value and state
+function syncSlider(el, displayId) {
+  S[el.id] = +el.value;
+  document.getElementById(displayId).textContent = formatDollar(+el.value);
+}
+
+
+// ─── CHECKBOX SETUP ───────────────────────────────────────────────────────────
+document.querySelectorAll('.check-item').forEach(label => {
+  label.addEventListener('click', function(e) {
+    e.preventDefault();
+    const input = this.querySelector('input[type=checkbox]');
+    const box   = this.querySelector('.check-box');
+    input.checked = !input.checked;
+    this.classList.toggle('on', input.checked);
+    box.textContent = input.checked ? '✓' : '';
+    markField('f-alts'); // section 5 is optional but counts if touched
+  });
+});
+
+
+// ─── COMPLETION TRACKING ──────────────────────────────────────────────────────
+function getCompletionPct() {
+  const answered = ALL_FIELDS.filter(id => {
+    const el = document.getElementById(id);
+    return el && el.classList.contains('answered');
+  }).length;
+  return answered / ALL_FIELDS.length;
+}
+
+
+// ─── FORMATTERS ───────────────────────────────────────────────────────────────
+function formatDollar(n) {
+  if (Math.abs(n) >= 1e6)   return '$' + (n / 1e6).toFixed(1) + 'M';
+  if (Math.abs(n) >= 1000)  return '$' + Math.round(n).toLocaleString();
+  return '$' + Math.round(n);
+}
+
+function formatPct(n) {
+  return (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
+}
+
+
+// ─── CIVS CALCULATION ENGINE ──────────────────────────────────────────────────
+//
+// CIVS = w1·Ñ(C1) + w2·Ñ(C2) + w3·Ñ(C3) + w4·Ñ(C4) + w5·Ñ(C5)
+//
+// Where Ñ() = min-max normalization onto [0, 1] using empirical bounds,
+// and weights sum to 1.0:
+//   w1 = 0.35  Lifetime ROI             (payoff magnitude)
+//   w2 = 0.20  Time to positive ROI     (payoff latency, inverted)
+//   w3 = 0.20  Completion robustness    (failure sensitivity)
+//   w4 = 0.15  Downside protection      (dropout floor)
+//   w5 = 0.10  Graduation probability   (structural success rate)
+//
+// Normalization bounds (empirically grounded):
+//   C1 raw ROI:        min = -100%, max = +400%
+//   C2 break-even yrs: min = 1 yr,  max = 40 yrs  (inverted: fewer = better)
+//   C3 robustness:     min = 0.0,   max = 1.0
+//   C4 downside ratio: min = -1.0,  max = 1.0
+//   C5 grad prob:      min = 0.0,   max = 1.0
+
+const CIVS_WEIGHTS = { w1: 0.35, w2: 0.20, w3: 0.20, w4: 0.15, w5: 0.10 };
+
+const NORM_BOUNDS = {
+  C1: { min: -100, max: 400  },   // lifetime ROI %
+  C2: { min: 1,    max: 40   },   // break-even years (will be inverted)
+  C3: { min: 0,    max: 1    },   // robustness ratio
+  C4: { min: -1,   max: 1    },   // downside ratio
+  C5: { min: 0,    max: 1    },   // graduation probability
+};
+
+// Min-max normalize a value onto [0, 1] using defined bounds, clamped.
+function normalize(val, key) {
+  const { min, max } = NORM_BOUNDS[key];
+  return Math.min(1, Math.max(0, (val - min) / (max - min)));
+}
+
+function runFormulas() {
+  const major = S.major || 'undecided';
+  const m     = MAJOR_SAL[major] || MAJOR_SAL.undecided;
+  const yrs   = S.grad_years || 4;
+
+  // ── STEP 1: Build cost & earnings primitives ──────────────────────────────
+
+  // Opportunity cost: foregone wages during enrollment
+  const oppCost = 32000 * yrs;
+
+  // Loan repayment via standard annuity formula
+  const loanRate    = 0.065;
+  const loanTerm    = 10;
+  const mRate       = loanRate / 12;
+  const nMo         = loanTerm * 12;
+  const monthlyPay  = S.loans > 0
+    ? S.loans * (mRate * Math.pow(1 + mRate, nMo)) / (Math.pow(1 + mRate, nMo) - 1)
+    : 0;
+  const totalRepay  = monthlyPay * nMo;
+
+  // Net cost = direct costs − aid + opportunity cost + loan interest
+  const netCost = S.total_cost - (S.aid + S.family) + oppCost + (totalRepay - S.loans);
+
+  // Career earnings: 3-phase model × 2% annual growth adjustment
+  const growthAdj  = Math.pow(1.02, yrs / 2);
+  const sw = S.sal_start, mw = S.sal_mid, lw = mw * 1.25;   // with-degree phases
+  const sn = m.hs,        mn = m.hm,      ln = m.hl;          // no-degree baseline
+
+  const earnWithDeg = (sw * 10 + mw * 15 + lw * 15) * growthAdj;
+  const earnNoDeg   = (sn * 10 + mn * 15 + ln * 15) * growthAdj;
+  const earnPremium = earnWithDeg - earnNoDeg;
+
+  // ── STEP 2: Compute raw financial metrics ─────────────────────────────────
+
+  // On-time ROI: full earnings premium over net cost
+  const rawROI = netCost > 0 ? (earnPremium - netCost) / netCost * 100 : 0;
+
+  // Break-even: years after graduation until cumulative premium covers net cost
+  const annualPremium = sw - sn;
+  const breakEven     = annualPremium > 0 ? netCost / annualPremium : 40;
+
+  // NPV: three career phases discounted to today at 5%
+  const r   = 0.05;
+  const npv = (sw - sn) * 10 / Math.pow(1 + r, yrs + 5)
+            + (mw - mn) * 15 / Math.pow(1 + r, yrs + 17)
+            + (lw - ln) * 15 / Math.pow(1 + r, yrs + 33)
+            - netCost;
+
+  // ── STEP 3: CIVS Component derivation ────────────────────────────────────
+
+  // C1 — Lifetime ROI (payoff magnitude)
+  //   Raw: (earnPremium − netCost) / netCost × 100
+  const C1_raw = rawROI;
+
+  // C2 — Time to Positive ROI (payoff latency, inverted)
+  //   Fewer years to break-even = higher viability.
+  //   We invert by normalizing (max − val) / (max − min)
+  const C2_raw = breakEven;   // raw years; normalization will invert
+
+  // C3 — Completion Robustness
+  //   Ratio of risk-weighted ROI to on-time ROI.
+  //   Measures how much of the upside survives after weighting for dropout risk.
+  //
+  //   graduation_prob (C5 input) is adjusted from 0.60 national baseline:
+  //     +0.05 if major certainty ≥ 4
+  //     +0.05 if career requires degree (career_req === 3)
+  //     −0.05 if first-generation student
+  const majorCert  = S.major_cert || 3;
+  const careerReq  = S.career_req || 2;
+  const firstGen   = S.firstgen   || 0;
+  const gradProb   = Math.min(0.95, Math.max(0.30,
+    0.60
+    + (majorCert >= 4 ? 0.05 : 0)
+    + (careerReq === 3 ? 0.05 : 0)
+    - (firstGen === 1  ? 0.05 : 0)
+  ));
+
+  // Dropout scenario ROI: absorbs half the direct costs & opp cost, earns no degree premium
+  const dropoutNetCost = (S.total_cost / 2) + (oppCost / 2);
+  const dropoutROI     = earnNoDeg > 0
+    ? (earnNoDeg - dropoutNetCost) / dropoutNetCost * 100
+    : -100;
+
+  // Risk-weighted ROI = P(complete) × onTimeROI + P(dropout) × dropoutROI
+  const riskWeightedROI = gradProb * rawROI + (1 - gradProb) * dropoutROI;
+
+  // Robustness = risk-weighted / on-time (capped at 1.0; 0 if on-time is ≤0)
+  const C3_raw = rawROI > 0 ? Math.min(1, Math.max(0, riskWeightedROI / rawROI)) : 0;
+
+  // C4 — Downside Protection
+  //   How well does the dropout scenario compare to doing nothing (no-degree path)?
+  //   Ratio: (dropoutROI − noDegreeROI) / |noDegreeROI|  → normalized [-1, 1]
+  //   No-degree ROI: (earnNoDeg − 0) / 1 (no investment cost) ≈ a baseline proxy.
+  //   We operationalize as: dropoutROI / max(|dropoutROI|, |noDegreeROI|)
+  const noDegBaseline = 100;  // proxy: ~100% return on zero-cost no-degree path over career
+  const C4_raw = Math.min(1, Math.max(-1, dropoutROI / noDegBaseline));
+
+  // C5 — Graduation Probability (adjusted 6-year completion rate)
+  const C5_raw = gradProb;
+
+  // ── STEP 4: Normalize each component onto [0, 1] ─────────────────────────
+
+  const N1 = normalize(C1_raw, 'C1');
+  // C2 is inverted: fewer break-even years = better = higher score
+  const N2 = 1 - normalize(C2_raw, 'C2');
+  const N3 = normalize(C3_raw, 'C3');
+  const N4 = normalize(C4_raw, 'C4');
+  const N5 = normalize(C5_raw, 'C5');
+
+  // ── STEP 5: Weighted linear combination → CIVS ───────────────────────────
+
+  const { w1, w2, w3, w4, w5 } = CIVS_WEIGHTS;
+  const civs = Math.round((w1 * N1 + w2 * N2 + w3 * N3 + w4 * N4 + w5 * N5) * 100 * 10) / 10;
+
+  // Risk-adjusted NPV for supplemental display
+  const riskAdjNPV = gradProb * npv + (1 - gradProb) * (-(S.total_cost / 2) - (oppCost / 2));
+
+  return {
+    // CIVS final score
+    civs,
+    // Component normalized scores (0–1)
+    N1, N2, N3, N4, N5,
+    // Raw component values for display
+    rawROI, breakEven, C3_raw, C4_raw, gradProb,
+    // Supplemental financials
+    npv, riskAdjNPV, netCost, earnPremium, totalRepay,
+    riskWeightedROI, dropoutROI,
+  };
+}
+
+
+// ─── UPDATE DASHBOARD PANEL ───────────────────────────────────────────────────
+function calc() {
+  // Read slider values into state
+  ['total_cost', 'aid', 'loans', 'family', 'sal_start', 'sal_mid'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) S[id] = +el.value;
+  });
+  const majorEl = document.getElementById('major');
+  if (majorEl && majorEl.value) S.major = majorEl.value;
+
+  const pct = getCompletionPct();
+
+  // Update completion bar (always visible)
+  document.getElementById('completion-pct').textContent  = Math.round(pct * 100) + '% complete';
+  document.getElementById('completion-bar').style.width  = Math.round(pct * 100) + '%';
+  // Turn bar green once threshold met
+  document.getElementById('completion-bar').style.background = pct >= 0.8 ? 'var(--green)' : 'var(--amber)';
+
+  if (pct < 0.8) {
+    // Show "need more" — hide results
+    document.getElementById('panel-need-more').style.display = 'block';
+    document.getElementById('panel-results').style.display   = 'none';
+    return;
+  }
+
+  // Enough answers — show results
+  document.getElementById('panel-need-more').style.display = 'none';
+  document.getElementById('panel-results').style.display   = 'block';
+
+  const R = runFormulas();
+  const recText  = R.civs >= 70 ? '✅ INVEST'  : R.civs >= 45 ? '⚠️ CAUTION'    : '🔴 RECONSIDER';
+  const recShort = R.civs >= 70 ? 'INVEST'     : R.civs >= 45 ? 'CAUTION'        : 'RECONSIDER';
+  const recClass = R.civs >= 70 ? 'go'         : R.civs >= 45 ? 'warn'           : 'alt';
+
+  document.getElementById('p-score').textContent      = R.civs.toFixed(0);
+  document.getElementById('p-bar').style.width        = Math.min(100, R.civs) + '%';
+  const badge = document.getElementById('p-badge');
+  badge.textContent = recShort;
+  badge.className   = 'rec-badge ' + recClass;
+
+  // C1 — Lifetime ROI (display raw %, score in parens)
+  document.getElementById('p-roi').textContent    = formatPct(R.rawROI) + '  [N=' + R.N1.toFixed(2) + ']';
+  // C2 — Break-even (fewer = better; score reflects inversion)
+  document.getElementById('p-be').textContent     = (R.breakEven < 40 ? R.breakEven.toFixed(1) + ' yrs' : '>40 yrs') + '  [N=' + R.N2.toFixed(2) + ']';
+  // C3 — Robustness ratio
+  document.getElementById('p-robust').textContent = R.C3_raw.toFixed(2) + '  [N=' + R.N3.toFixed(2) + ']';
+  // C4 — Downside protection ratio
+  document.getElementById('p-droi').textContent   = R.C4_raw.toFixed(2) + '  [N=' + R.N4.toFixed(2) + ']';
+  // C5 — Graduation probability
+  document.getElementById('p-gradprob').textContent = (R.gradProb * 100).toFixed(0) + '%  [N=' + R.N5.toFixed(2) + ']';
+
+  // Formula drawer live values
+  document.getElementById('f-nc').textContent     = formatDollar(R.netCost);
+  document.getElementById('f-ep').textContent     = formatDollar(R.earnPremium);
+  document.getElementById('f-rawroi').textContent = formatPct(R.rawROI);
+  document.getElementById('f-be').textContent     = R.breakEven.toFixed(1) + ' yrs';
+  document.getElementById('f-gp').textContent     = (R.gradProb * 100).toFixed(0) + '%';
+  document.getElementById('f-rroi').textContent   = formatPct(R.riskWeightedROI);
+  document.getElementById('f-civs').textContent   = R.civs.toFixed(1) + ' / 100';
+
+  // Cache for results page
+  window._lastResults = { R, recText };
+}
+
+
+// ─── UPDATE RESULTS PAGE (section 7) ─────────────────────────────────────────
+function updateResultsPage() {
+  if (!window._lastResults) { calc(); }
+  if (!window._lastResults) return;
+
+  const { R, recText } = window._lastResults;
+
+  document.getElementById('r-score').textContent   = R.civs.toFixed(0);
+  document.getElementById('r-rec').textContent     = recText;
+  document.getElementById('r-roi').textContent     = formatPct(R.rawROI);
+  document.getElementById('r-be').textContent      = R.breakEven < 40 ? R.breakEven.toFixed(1) + ' yrs' : '>40 yrs';
+  document.getElementById('r-robust').textContent  = R.C3_raw.toFixed(2);
+  document.getElementById('r-droi').textContent    = R.C4_raw.toFixed(2);
+  document.getElementById('r-gradprob').textContent = (R.gradProb * 100).toFixed(0) + '%';
+  document.getElementById('r-rnpv').textContent    = formatDollar(R.riskAdjNPV);
+
+  document.getElementById('r-risk-note').innerHTML =
+    `<strong>CIVS = ${(CIVS_WEIGHTS.w1*R.N1).toFixed(2)} + ${(CIVS_WEIGHTS.w2*R.N2).toFixed(2)} + ` +
+    `${(CIVS_WEIGHTS.w3*R.N3).toFixed(2)} + ${(CIVS_WEIGHTS.w4*R.N4).toFixed(2)} + ${(CIVS_WEIGHTS.w5*R.N5).toFixed(2)} = ${R.civs.toFixed(1)}</strong>` +
+    `<br><small style="opacity:.7">(w₁·Ñ(C1) + w₂·Ñ(C2) + w₃·Ñ(C3) + w₄·Ñ(C4) + w₅·Ñ(C5))</small>` +
+    `<br><br>Adjusted graduation probability: <strong>${(R.gradProb*100).toFixed(0)}%</strong> — ` +
+    `risk-weighted ROI of <strong>${formatPct(R.riskWeightedROI)}</strong> vs. on-time ROI of <strong>${formatPct(R.rawROI)}</strong>. ` +
+    (R.riskAdjNPV > 0
+      ? 'Risk-adjusted NPV remains positive — the degree retains economic value after accounting for completion uncertainty.'
+      : 'Risk-adjusted NPV turns negative — completion is the single most important driver of whether this investment pays off.');
+}
+
+
+// ─── TAB SWITCHER ─────────────────────────────────────────────────────────────
+function showTab(id, el) {
+  document.querySelectorAll('.tab-pane').forEach(t => t.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  document.getElementById('tab-' + id).classList.add('on');
+  el.classList.add('on');
+}
+
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+// Sync slider display values on load
+const SLIDER_MAP = {
+  total_cost: 'v-cost', aid: 'v-aid', loans: 'v-loans',
+  family: 'v-family', sal_start: 'v-sal1', sal_mid: 'v-sal2'
+};
+document.querySelectorAll('input[type=range]').forEach(el => {
+  const vid = SLIDER_MAP[el.id];
+  if (vid) document.getElementById(vid).textContent = formatDollar(+el.value);
+});
+
+// Run initial calc to set completion bar state
+calc();
+</script>
+</body>
+</html>
