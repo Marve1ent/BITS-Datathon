@@ -130,6 +130,7 @@ select:focus { border-color: var(--accent); box-shadow: 2px 2px 0 var(--accent);
 input[type=range] {
   width: 100%;
   -webkit-appearance: none;
+  appearance: none;
   height: 3px;
   background: var(--cream);
   border: 1px solid var(--rule);
@@ -138,6 +139,7 @@ input[type=range] {
 }
 input[type=range]::-webkit-slider-thumb {
   -webkit-appearance: none;
+  appearance: none;
   width: 16px; height: 16px;
   background: var(--ink);
   border-radius: 50%;
@@ -395,8 +397,8 @@ input[type=range]::-webkit-slider-thumb {
     <!-- ── Section 1: Demographics ── -->
     <div class="section on" id="s1">
       <div class="sec-num">Section 01 / 07</div>
-      <div class="sec-title">Who are you?</div>
-      <div class="sec-desc">Background helps calibrate the right comparison baselines.</div>
+      <div class="sec-title">A little bit about you.</div>
+      <div class="sec-desc">These background questions helps calibrate the best comparison baselines.</div>
 
       <div class="field" id="f-edu">
         <label for="edu_level">Current education level</label>
@@ -427,9 +429,9 @@ input[type=range]::-webkit-slider-thumb {
             <option value="">— Select —</option>
             <option value="30">Under $30K</option>
             <option value="45">$30K – $60K</option>
-            <option value="80">$60K – $100K</option>
-            <option value="125">$100K – $150K</option>
-            <option value="200">$150K+</option>
+            <option value="80">$60K – $80K</option>
+            <option value="125">$80K – $100K</option>
+            <option value="200">$100K+</option>
           </select>
         </div>
       </div>
