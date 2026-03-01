@@ -139,7 +139,6 @@ input[type=range] {
 }
 input[type=range]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  appearance: none;
   width: 16px; height: 16px;
   background: var(--ink);
   border-radius: 50%;
@@ -397,8 +396,8 @@ input[type=range]::-webkit-slider-thumb {
     <!-- ── Section 1: Demographics ── -->
     <div class="section on" id="s1">
       <div class="sec-num">Section 01 / 07</div>
-      <div class="sec-title">A little bit about you.</div>
-      <div class="sec-desc">These background questions helps calibrate the best comparison baselines.</div>
+      <div class="sec-title">Who are you?</div>
+      <div class="sec-desc">Background helps calibrate the right comparison baselines.</div>
 
       <div class="field" id="f-edu">
         <label for="edu_level">Current education level</label>
@@ -429,9 +428,9 @@ input[type=range]::-webkit-slider-thumb {
             <option value="">— Select —</option>
             <option value="30">Under $30K</option>
             <option value="45">$30K – $60K</option>
-            <option value="80">$60K – $80K</option>
-            <option value="125">$80K – $100K</option>
-            <option value="200">$100K+</option>
+            <option value="80">$60K – $100K</option>
+            <option value="125">$100K – $150K</option>
+            <option value="200">$150K+</option>
           </select>
         </div>
       </div>
@@ -528,6 +527,15 @@ input[type=range]::-webkit-slider-thumb {
           <input type="range" id="loans" min="0" max="150000" step="1000" value="40000"
                  oninput="syncSlider(this, 'v-loans'); calc()">
           <div class="slider-val" id="v-loans">$40,000</div>
+        </div>
+      </div>
+
+      <div class="field answered" id="f-loanrate">
+        <label>Loan interest rate <small>federal avg ~6.5%, private can be higher</small></label>
+        <div class="slider-row">
+          <input type="range" id="loan_rate" min="0" max="15" step="0.1" value="6.5"
+                 oninput="syncSliderPct(this, 'v-loanrate'); calc()">
+          <div class="slider-val" id="v-loanrate">6.5%</div>
         </div>
       </div>
 
@@ -896,7 +904,59 @@ input[type=range]::-webkit-slider-thumb {
       is structurally riskier than one that breaks even in 7, even if lifetime totals are similar.
       This component captures that timing dimension explicitly.
     </div>
-    <div class="formula-vars">Inputs: total_cost, aid, family, loans, sal_start, major (for no-degree baseline)</div>
+    <div class="formula-vars">Inputs: total_cost, aid, family, loans, loan_rate, sal_start, major (for no-degree baseline)</div>
+  </div>
+
+  <!-- Loan Interest -->
+  <div class="formula-card" style="border-left-color:#8e44ad">
+    <h3>Loan Interest Calculation &nbsp;<small style="font-weight:400;opacity:.5">feeds into NetCost</small></h3>
+    <div class="formula-code">
+      r = annual_rate / 12  (monthly interest rate)<br>
+      n = 120  (10-year standard repayment = 120 months)<br><br>
+      MonthlyPayment = Principal × [ r(1+r)ⁿ ] / [ (1+r)ⁿ − 1 ]<br><br>
+      TotalRepaid   = MonthlyPayment × 120<br>
+      InterestPaid  = TotalRepaid − Principal<br><br>
+      Example at 6.5% on $40,000:<br>
+      &nbsp;&nbsp; r = 0.065/12 = 0.00542<br>
+      &nbsp;&nbsp; Monthly = $454.14<br>
+      &nbsp;&nbsp; Total = $54,497<br>
+      &nbsp;&nbsp; Interest = <strong>$14,497</strong> (36% of principal)<br><br>
+      Example at 12% on $100,000:<br>
+      &nbsp;&nbsp; Monthly = $1,434.71<br>
+      &nbsp;&nbsp; Total = $172,165<br>
+      &nbsp;&nbsp; Interest = <strong>$72,165</strong> (72% of principal)
+    </div>
+    <div class="formula-desc">
+      The standard amortization formula for fixed-rate loans. Higher rates dramatically increase total cost —
+      a 12% rate nearly doubles the effective price of the loan vs. a 6% rate. This directly increases
+      NetCost, reducing C1 (ROI) and increasing C2 (break-even time).
+    </div>
+    <div class="formula-vars">Inputs: loans, loan_rate</div>
+  </div>
+
+  <!-- Debt Burden Penalty -->
+  <div class="formula-card" style="border-left-color:#c0392b">
+    <h3>Debt Burden Penalty &nbsp;<small style="font-weight:400;opacity:.5">applied to final CIVS</small></h3>
+    <div class="formula-code">
+      DebtToIncome = TotalLoans / StartingSalary<br><br>
+      Penalty = min(0.15, max(0, (DebtToIncome − 0.5) × 0.15))<br><br>
+      CIVS_final = CIVS_base − (Penalty × 100)<br><br>
+      <strong>Penalty thresholds:</strong><br>
+      &nbsp;&nbsp; Debt/Income ≤ 0.5  →  No penalty<br>
+      &nbsp;&nbsp; Debt/Income = 1.0  →  −7.5 points<br>
+      &nbsp;&nbsp; Debt/Income = 1.5  →  −15 points (max penalty)<br>
+      &nbsp;&nbsp; Debt/Income ≥ 2.0  →  −15 points (capped)<br><br>
+      <strong>Examples:</strong><br>
+      &nbsp;&nbsp; $30K debt on $60K salary  →  0.5 ratio  →  No penalty<br>
+      &nbsp;&nbsp; $80K debt on $55K salary  →  1.45 ratio  →  −14.3 points<br>
+      &nbsp;&nbsp; $150K debt on $55K salary →  2.73 ratio  →  −15 points (max)
+    </div>
+    <div class="formula-desc">
+      High debt-to-income ratios constrain career flexibility, delay wealth building, and create financial stress.
+      The federal government considers debt "unaffordable" when it exceeds annual income. This penalty ensures
+      the CIVS score reflects the real-world burden of excessive borrowing, even when lifetime ROI appears positive.
+    </div>
+    <div class="formula-vars">Inputs: loans, sal_start</div>
   </div>
 
   <!-- C3 -->
@@ -991,6 +1051,7 @@ const S = {
   total_cost:  120000,   // slider — always has a value
   aid:         15000,
   loans:       40000,
+  loan_rate:   6.5,      // interest rate %
   family:      10000,
   work_school: null,
   career_req:  null,
@@ -1076,6 +1137,12 @@ function syncSlider(el, displayId) {
   document.getElementById(displayId).textContent = formatDollar(+el.value);
 }
 
+// Sync slider for percentage values (like interest rate)
+function syncSliderPct(el, displayId) {
+  S[el.id] = +el.value;
+  document.getElementById(displayId).textContent = (+el.value).toFixed(1) + '%';
+}
+
 
 // ─── CHECKBOX SETUP ───────────────────────────────────────────────────────────
 document.querySelectorAll('.check-item').forEach(label => {
@@ -1159,7 +1226,7 @@ function runFormulas() {
   const oppCost = 32000 * yrs;
 
   // Loan repayment via standard annuity formula
-  const loanRate    = 0.065;
+  const loanRate    = (S.loan_rate || 6.5) / 100;  // User-adjustable interest rate
   const loanTerm    = 10;
   const mRate       = loanRate / 12;
   const nMo         = loanTerm * 12;
@@ -1225,11 +1292,20 @@ function runFormulas() {
     - (firstGen === 1  ? 0.05 : 0)
   ));
 
-  // Dropout scenario ROI: absorbs half the direct costs & opp cost, earns no degree premium
-  const dropoutNetCost = (S.total_cost / 2) + (oppCost / 2);
-  const dropoutROI     = earnNoDeg > 0
+  // Dropout scenario ROI: absorbs half the direct costs & opp cost + partial loan repayment
+  // Key fix: dropouts STILL have to repay their loans, which crushes the dropout scenario
+  const dropoutLoanPct = 0.6;  // Assume ~60% of loans already taken if dropout mid-program
+  const dropoutLoanCost = (totalRepay - S.loans) * dropoutLoanPct + S.loans * dropoutLoanPct;
+  const dropoutNetCost = (S.total_cost / 2) + (oppCost / 2) + dropoutLoanCost;
+  const dropoutROI     = dropoutNetCost > 0
     ? (earnNoDeg - dropoutNetCost) / dropoutNetCost * 100
     : -100;
+
+  // Debt burden penalty: high debt-to-income ratios constrain career flexibility
+  // Ratio > 1.0 means debt exceeds first-year salary (federal "unaffordable" threshold)
+  const debtToIncome = S.loans / Math.max(sw, 1);
+  // Penalty scales from 0 (no debt) to -0.15 (debt = 2x salary or more)
+  const debtBurdenPenalty = Math.min(0.15, Math.max(0, (debtToIncome - 0.5) * 0.15));
 
   // Risk-weighted ROI = P(complete) × onTimeROI + P(dropout) × dropoutROI
   const riskWeightedROI = gradProb * rawROI + (1 - gradProb) * dropoutROI;
@@ -1260,10 +1336,13 @@ function runFormulas() {
   // ── STEP 5: Weighted linear combination → CIVS ───────────────────────────
 
   const { w1, w2, w3, w4, w5 } = CIVS_WEIGHTS;
-  const civs = Math.round((w1 * N1 + w2 * N2 + w3 * N3 + w4 * N4 + w5 * N5) * 100 * 10) / 10;
+  // Base CIVS from 5 components
+  const baseCivs = (w1 * N1 + w2 * N2 + w3 * N3 + w4 * N4 + w5 * N5) * 100;
+  // Apply debt burden penalty (up to -15 points for extreme debt-to-income)
+  const civs = Math.round(Math.max(0, baseCivs - (debtBurdenPenalty * 100)) * 10) / 10;
 
-  // Risk-adjusted NPV for supplemental display
-  const riskAdjNPV = gradProb * npv + (1 - gradProb) * (-(S.total_cost / 2) - (oppCost / 2));
+  // Risk-adjusted NPV for supplemental display (also include dropout loan cost)
+  const riskAdjNPV = gradProb * npv + (1 - gradProb) * (-dropoutNetCost);
 
   return {
     // CIVS final score
@@ -1274,7 +1353,7 @@ function runFormulas() {
     rawROI, breakEven, C3_raw, C4_raw, gradProb,
     // Supplemental financials
     npv, riskAdjNPV, netCost, earnPremium, totalRepay,
-    riskWeightedROI, dropoutROI,
+    riskWeightedROI, dropoutROI, debtToIncome, debtBurdenPenalty,
   };
 }
 
@@ -1282,7 +1361,7 @@ function runFormulas() {
 // ─── UPDATE DASHBOARD PANEL ───────────────────────────────────────────────────
 function calc() {
   // Read slider values into state
-  ['total_cost', 'aid', 'loans', 'family', 'sal_start', 'sal_mid'].forEach(id => {
+  ['total_cost', 'aid', 'loans', 'loan_rate', 'family', 'sal_start', 'sal_mid'].forEach(id => {
     const el = document.getElementById(id);
     if (el) S[id] = +el.value;
   });
@@ -1384,12 +1463,18 @@ function showTab(id, el) {
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 // Sync slider display values on load
 const SLIDER_MAP = {
-  total_cost: 'v-cost', aid: 'v-aid', loans: 'v-loans',
+  total_cost: 'v-cost', aid: 'v-aid', loans: 'v-loans', loan_rate: 'v-loanrate',
   family: 'v-family', sal_start: 'v-sal1', sal_mid: 'v-sal2'
 };
 document.querySelectorAll('input[type=range]').forEach(el => {
   const vid = SLIDER_MAP[el.id];
-  if (vid) document.getElementById(vid).textContent = formatDollar(+el.value);
+  if (vid) {
+    if (el.id === 'loan_rate') {
+      document.getElementById(vid).textContent = (+el.value).toFixed(1) + '%';
+    } else {
+      document.getElementById(vid).textContent = formatDollar(+el.value);
+    }
+  }
 });
 
 // Run initial calc to set completion bar state
